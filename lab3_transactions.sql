@@ -254,7 +254,7 @@ BEGIN
 END
 GO
 
-CREATE PROCEDURE insertIntoCorpoResourcesV1
+CREATE OR ALTER PROCEDURE insertIntoCorpoResourcesV1
 @cCountry VARCHAR(50), 
 	@cGoods VARCHAR(50), 
 	@cName VARCHAR(50), 
@@ -311,13 +311,15 @@ BEGIN
 
 	BEGIN CATCH
 		ROLLBACK TRAN
+		SELECT @msg
 		SELECT 'Insert V1 Transaction rollback'
+		INSERT INTO LogTable(TypeOperation, TableOperation, ExecutionDate) VALUES ('ROLLBACK', 'All', CURRENT_TIMESTAMP)
 	END CATCH
 END
 GO
 
 --successful
-EXEC insertIntoCorpoResourcesV1 'Romania','TV', 'SinoTrans', 'Other', 'Copper', 5822, 199999
+EXEC insertIntoCorpoResourcesV1 'Romania', 'Cables', 'SinoTrans', 'Other', 'Copper', 5825, 199999
 SELECT * FROM Corporations 
 SELECT * FROM Resources
 SELECT * FROM CorporationResources
@@ -342,6 +344,7 @@ AS
 BEGIN
 	DECLARE @msg VARCHAR(250)
 	DECLARE @flag BIT
+	DECLARE @err BIT
 
 	BEGIN TRAN
 	BEGIN TRY
@@ -360,9 +363,14 @@ BEGIN
 
 	BEGIN CATCH
 		ROLLBACK TRAN
+		SET @err=1
+		SELECT @msg
 		SELECT 'Insert into Corporations Transaction rolled back'
 		INSERT INTO LogTable(TypeOperation, TableOperation, ExecutionDate) VALUES ('ROLLBACK', 'Corporations', CURRENT_TIMESTAMP)
 	END CATCH
+
+	IF @err=1
+		RETURN
 
 	BEGIN TRAN
 	BEGIN TRY
@@ -381,9 +389,14 @@ BEGIN
 
 	BEGIN CATCH
 		ROLLBACK TRAN
+		SET @err=1
+		SELECT @msg
 		SELECT 'Insert into Resources Transaction rolled back'
 		INSERT INTO LogTable(TypeOperation, TableOperation, ExecutionDate) VALUES ('ROLLBACK', 'Resources', CURRENT_TIMESTAMP)
 	END CATCH
+
+	IF @err=1
+		RETURN
 
 	BEGIN TRAN
 	BEGIN TRY
@@ -398,7 +411,7 @@ BEGIN
 				RAISERROR (@msg, 14, 1)
 			END
 
-		INSERT INTO Resources(ResourceType, ResourceName, ResourceWeight, ResourcePrice) VALUES (@rType, @rName, @rWeight, @rPrice)
+		INSERT INTO CorporationResources(CorporationID, ResourceID) VALUES (@CorpoID, @ResourceID)
 		INSERT INTO LogTable(TypeOperation, TableOperation, ExecutionDate) VALUES ('INSERT', 'CorporationResources', CURRENT_TIMESTAMP)
 
 	COMMIT TRAN 
@@ -407,12 +420,14 @@ BEGIN
 
 	BEGIN CATCH
 		ROLLBACK TRAN
+		SET @err=1
+		SELECT @msg
 		SELECT 'Insert into CorporationResources Transaction rolled back'
 	END CATCH
 END
 
 --successful
-EXEC insertIntoCorpoResourcesV2 'Ukraine', 'Shells', 'Bandera', 'Other', 'Copper', 5999, 399999
+EXEC insertIntoCorpoResourcesV2 'Ukraine', 'Shells', 'TransBandera', 'Other', 'Copper', 6999, 499999
 SELECT * FROM Corporations 
 SELECT * FROM Resources
 SELECT * FROM CorporationResources
